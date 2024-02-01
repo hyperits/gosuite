@@ -5,11 +5,11 @@ import (
 	"os"
 )
 
-func AutoLoadConfig() *Config {
-	return LoadConfig("")
+func AutoLoadSuiteConfig() *SuiteConfig {
+	return LoadSuiteConfig("")
 }
 
-func LoadConfig(location string) *Config {
+func LoadSuiteConfig(location string) *SuiteConfig {
 	configPath := ""
 	// param first
 	if location != "" {
@@ -27,7 +27,7 @@ func LoadConfig(location string) *Config {
 	if err != nil {
 		log.Fatalf("Failed to read config content of %v: %v", configPath, err)
 	}
-	conf, err := NewConfig(string(configBody), true)
+	conf, err := NewSuiteConfig(string(configBody), true)
 	if err != nil {
 		log.Fatalf("Failed to init config from %v: %v", configPath, err)
 	}

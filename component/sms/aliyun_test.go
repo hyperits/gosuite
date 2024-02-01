@@ -8,7 +8,7 @@ import (
 )
 
 func TestAliyunSms(t *testing.T) {
-	conf := config.LoadConfig("../../../configs/config.yaml")
+	conf := config.LoadSuiteConfig("../../../configs/config.yaml")
 	comp := sms.NewSmsComp(&conf.Sms)
 
 	err := comp.SendByAliyun("18888888888", "123456")

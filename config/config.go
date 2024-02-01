@@ -8,9 +8,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	Address     string                   `yaml:"address"`               // bind address
-	LogLevel    string                   `yaml:"log_level,omitempty"`   // log
+type SuiteConfig struct {
+	Address     string                   `yaml:"address"`               // bind address | :1234
+	LogLevel    string                   `yaml:"log_level,omitempty"`   // log | error/warn/info
 	MySQL       MySQLConfig              `yaml:"mysql"`                 // store
 	S3          S3Config                 `yaml:"s3"`                    // s3
 	Redis       serviceRedis.RedisConfig `yaml:"redis,omitempty"`       // redis
@@ -57,9 +57,9 @@ type AliyunSmsConfig struct {
 	TemplateCode string `yaml:"template_code"`
 }
 
-func NewConfig(confString string, strictMode bool) (*Config, error) {
+func NewSuiteConfig(confString string, strictMode bool) (*SuiteConfig, error) {
 	// start with defaults
-	conf := &Config{
+	conf := &SuiteConfig{
 		Address:  ":50051",
 		LogLevel: "debug",
 		MySQL:    MySQLConfig{},
