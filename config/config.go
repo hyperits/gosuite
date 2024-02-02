@@ -2,11 +2,21 @@ package config
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"strings"
 
 	serviceRedis "github.com/hyperits/gosuite/store/redis"
 	"gopkg.in/yaml.v3"
 )
+
+// ----------------------------------------------------------------------------
+// Example Config, You can impl your own like:
+// 	type AppConfig struct {
+// 		Address string      `yaml:"address"` // bind address | :1234
+//		MySQL   MySQLConfig `yaml:"mysql"`   // store
+// 	}
+// ----------------------------------------------------------------------------
 
 type SuiteConfig struct {
 	Address     string                   `yaml:"address"`               // bind address | :1234
@@ -17,44 +27,6 @@ type SuiteConfig struct {
 	Mail        MailConfig               `yaml:"mail,omitempty"`        // mail
 	Sms         SmsConfig                `yaml:"sms,omitempty"`         // sms
 	Development bool                     `yaml:"development,omitempty"` // deployment mode
-}
-
-type MySQLConfig struct {
-	Host     string `yaml:"host"`
-	Port     int    `yaml:"port"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-	DbName   string `yaml:"dbname"`
-}
-
-type S3Config struct {
-	Endpoint       string `yaml:"endpoint"`
-	AccessKey      string `yaml:"access_key"`
-	Secret         string `yaml:"secret"`
-	Bucket         string `yaml:"bucket"`
-	Region         string `yaml:"region"`
-	Secure         bool   `yaml:"secure"`
-	ForcePathStyle bool   `yaml:"force_path_style"`
-}
-
-type MailConfig struct {
-	Host     string `yaml:"host"`
-	Port     int    `yaml:"port"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-}
-
-type SmsConfig struct {
-	Provider string          `yaml:"provider"` // aliyun | etc.
-	Aliyun   AliyunSmsConfig `yaml:"aliyun,omitempty"`
-}
-
-type AliyunSmsConfig struct {
-	Region       string `yaml:"region"`
-	AccessKey    string `yaml:"access_key"`
-	SecretKey    string `yaml:"secret_key"`
-	SignName     string `yaml:"sign_name"`
-	TemplateCode string `yaml:"template_code"`
 }
 
 func NewSuiteConfig(confString string, strictMode bool) (*SuiteConfig, error) {
@@ -80,4 +52,33 @@ func NewSuiteConfig(confString string, strictMode bool) (*SuiteConfig, error) {
 	}
 
 	return conf, nil
+}
+
+func AutoLoadSuiteConfig() *SuiteConfig {
+	return LoadSuiteConfig("")
+}
+
+func LoadSuiteConfig(location string) *SuiteConfig {
+	configPath := ""
+	// param first
+	if location != "" {
+		configPath = location
+	} else {
+		// env second
+		envValue := os.Getenv("CONFIG_PATH")
+		if envValue == "" {
+			// debug default
+			configPath = "configs/config.yaml"
+		}
+	}
+
+	configBody, err := os.ReadFile(configPath)
+	if err != nil {
+		log.Fatalf("Failed to read config content of %v: %v", configPath, err)
+	}
+	conf, err := NewSuiteConfig(string(configBody), true)
+	if err != nil {
+		log.Fatalf("Failed to init config from %v: %v", configPath, err)
+	}
+	return conf
 }
