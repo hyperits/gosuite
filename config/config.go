@@ -19,8 +19,6 @@ import (
 // ----------------------------------------------------------------------------
 
 type SuiteConfig struct {
-	Address     string                   `yaml:"address"`               // bind address | :1234
-	LogLevel    string                   `yaml:"log_level,omitempty"`   // log | error/warn/info
 	MySQL       MySQLConfig              `yaml:"mysql"`                 // store
 	S3          S3Config                 `yaml:"s3"`                    // s3
 	Redis       serviceRedis.RedisConfig `yaml:"redis,omitempty"`       // redis
@@ -32,11 +30,9 @@ type SuiteConfig struct {
 func NewSuiteConfig(confString string, strictMode bool) (*SuiteConfig, error) {
 	// start with defaults
 	conf := &SuiteConfig{
-		Address:  ":50051",
-		LogLevel: "debug",
-		MySQL:    MySQLConfig{},
-		S3:       S3Config{},
-		Redis:    serviceRedis.RedisConfig{},
+		MySQL: MySQLConfig{},
+		S3:    S3Config{},
+		Redis: serviceRedis.RedisConfig{},
 	}
 
 	if confString != "" {
@@ -45,10 +41,6 @@ func NewSuiteConfig(confString string, strictMode bool) (*SuiteConfig, error) {
 		if err := decoder.Decode(conf); err != nil {
 			return nil, fmt.Errorf("could not parse config: %v", err)
 		}
-	}
-
-	if conf.LogLevel == "" && conf.Development {
-		conf.LogLevel = "debug"
 	}
 
 	return conf, nil

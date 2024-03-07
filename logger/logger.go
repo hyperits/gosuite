@@ -3,10 +3,15 @@ package logger
 import (
 	"fmt"
 	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/hyperits/gosuite/debugger"
+	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var log zerolog.Logger
@@ -34,10 +39,67 @@ const (
 )
 
 func init() {
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
-	log = zerolog.New(output).With().Timestamp().Logger()
-	SetLevel(DebugLevel)
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
+	logFile := "logs/app.log"
+	rotation := &lumberjack.Logger{
+		Filename:   logFile,
+		MaxSize:    32, // 每个日志文件的最大大小（兆字节）
+		MaxBackups: 15, // 保留的旧日志文件的最大数量
+		MaxAge:     15, // 保留的旧日志文件的最大天数
+		Compress:   true,
+	}
+
+	log = zerolog.New(rotation).With().Timestamp().Logger()
+	SetLevel(InfoLevel)
+
+	// 日志清理
+	// 使用 cron 定时清理日志
+	c := cron.New()
+	// 每天午夜运行清理任务
+	_, _ = c.AddFunc("0 0 * * *", func() {
+		cleanupLogs(logFile, 15)
+	})
+	c.Start()
+
+	signalChannel := make(chan os.Signal, 1)
+	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-signalChannel
+
+		// 在完成时关闭日志记录器和 cron 调度器
+		_ = rotation.Close()
+		c.Stop()
+	}()
+}
+
+// cleanupLogs 删除早于 `days` 天的日志文件
+func cleanupLogs(logFile string, days int) {
+	log.Info().Msgf("Start cleanupLogs start with %v within %v days", logFile, days)
+	files, err := filepath.Glob(logFile + ".*")
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to list logfiles")
+		return
+	}
+
+	for _, file := range files {
+		fi, err := os.Stat(file)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to stat file info")
+			continue
+		}
+
+		diff := time.Since(fi.ModTime())
+		if diff.Hours() > float64(days*24) {
+			err := os.Remove(file)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to remove log file")
+			} else {
+				log.Info().Str("file", file).Msg("Remove log file success")
+			}
+		}
+	}
+	log.Info().Msgf("End cleanupLogs start with %v within %v days", logFile, days)
 }
 
 func SetStrLevel(l string) error {
