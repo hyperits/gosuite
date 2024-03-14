@@ -38,7 +38,7 @@ type RequestOptions struct {
 	Method         string
 	URL            string
 	Headers        map[string]string
-	Body           []byte
+	Body           io.Reader
 	RequestTimeout time.Duration
 }
 
@@ -62,7 +62,7 @@ func WithHeaders(headers map[string]string) RequestOption {
 	}
 }
 
-func WithBody(body []byte) RequestOption {
+func WithBody(body io.Reader) RequestOption {
 	return func(opts *RequestOptions) {
 		opts.Body = body
 	}
@@ -78,7 +78,7 @@ func NewRequestOptions(options ...RequestOption) *RequestOptions {
 	opts := &RequestOptions{
 		Method:         GET,
 		Headers:        make(map[string]string),
-		Body:           []byte{},
+		Body:           bytes.NewReader([]byte{}),
 		RequestTimeout: 10 * time.Second,
 	}
 	for _, option := range options {
@@ -100,7 +100,7 @@ func NewClient() *Client {
 }
 
 func (c *Client) DoRequest(options RequestOptions) (*http.Response, error) {
-	req, err := http.NewRequest(options.Method, options.URL, bytes.NewBuffer(options.Body))
+	req, err := http.NewRequest(options.Method, options.URL, options.Body)
 	if err != nil {
 		return nil, err
 	}

@@ -3,6 +3,7 @@ package httputil_test
 import (
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,7 +55,7 @@ func TestGet(t *testing.T) {
 func TestPost(t *testing.T) {
 	resp, err := httputil.NewClient().Post(
 		"https://echo.free.beeceptor.com",
-		httputil.WithBody([]byte(`{"foo": "bar"}`)),
+		httputil.WithBody(strings.NewReader(`{"foo": "bar"}`)),
 		httputil.WithHeaders(map[string]string{
 			httputil.Content_Type: httputil.JSON,
 		}),
