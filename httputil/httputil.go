@@ -23,7 +23,7 @@ const (
 )
 
 const (
-	Content_Type = "Content-Type"
+	CONTENT_TYPE = "Content-Type"
 
 	JSON   = "application/json"
 	XML    = "text/xml"

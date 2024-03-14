@@ -17,7 +17,7 @@ func TestDoRequest(t *testing.T) {
 		Method: httputil.GET,
 		URL:    "https://echo.free.beeceptor.com",
 		Headers: map[string]string{
-			httputil.Content_Type: httputil.JSON,
+			httputil.CONTENT_TYPE: httputil.JSON,
 		},
 		RequestTimeout: 5 * time.Second,
 	})
@@ -57,7 +57,7 @@ func TestPost(t *testing.T) {
 		"https://echo.free.beeceptor.com",
 		httputil.WithBody(strings.NewReader(`{"foo": "bar"}`)),
 		httputil.WithHeaders(map[string]string{
-			httputil.Content_Type: httputil.JSON,
+			httputil.CONTENT_TYPE: httputil.JSON,
 		}),
 	)
 	if err != nil {
