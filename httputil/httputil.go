@@ -2,6 +2,7 @@ package httputil
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -119,7 +120,11 @@ func (c *Client) DoRequest(options RequestOptions) (*http.Response, error) {
 	return resp, nil
 }
 
-func (c *Client) wrapResponse(resp *http.Response) (*Response, error) {
+func (c *Client) WrapHttpResponse(resp *http.Response) (*Response, error) {
+	if resp == nil {
+		return nil, errors.New("response is nil")
+	}
+
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -147,7 +152,7 @@ func (c *Client) Get(url string, options ...RequestOption) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.wrapResponse(resp)
+	return c.WrapHttpResponse(resp)
 }
 
 // POST
@@ -159,7 +164,7 @@ func (c *Client) Post(url string, options ...RequestOption) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.wrapResponse(resp)
+	return c.WrapHttpResponse(resp)
 }
 
 // PUT
@@ -171,7 +176,7 @@ func (c *Client) Put(url string, options ...RequestOption) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.wrapResponse(resp)
+	return c.WrapHttpResponse(resp)
 }
 
 // DELETE
@@ -183,5 +188,5 @@ func (c *Client) Delete(url string, options ...RequestOption) (*Response, error)
 	if err != nil {
 		return nil, err
 	}
-	return c.wrapResponse(resp)
+	return c.WrapHttpResponse(resp)
 }
