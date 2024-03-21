@@ -3,13 +3,12 @@ package sms_test
 import (
 	"testing"
 
-	"github.com/hyperits/gosuite/component/sms"
-	"github.com/hyperits/gosuite/config"
+	"github.com/hyperits/gosuite/sms"
 )
 
 func TestAliyunSms(t *testing.T) {
-	conf := config.LoadSuiteConfig("../../../configs/config.yaml")
-	comp := sms.NewSmsComp(&conf.Sms)
+	conf := sms.SmsConfig{}
+	comp := sms.NewSmsComponent(&conf)
 
 	err := comp.SendByAliyun("18888888888", "123456")
 	if err != nil {

@@ -1,4 +1,4 @@
-package redis
+package redisdb
 
 import (
 	"context"
@@ -12,18 +12,46 @@ import (
 var ErrNotConfigured = errors.New("Redis is not configured")
 
 type RedisConfig struct {
-	Address           string   `yaml:"address"`
-	Username          string   `yaml:"username"`
-	Password          string   `yaml:"password"`
-	DB                int      `yaml:"db"`
-	UseTLS            bool     `yaml:"use_tls"`
-	MasterName        string   `yaml:"sentinel_master_name"`
-	SentinelUsername  string   `yaml:"sentinel_username"`
-	SentinelPassword  string   `yaml:"sentinel_password"`
-	SentinelAddresses []string `yaml:"sentinel_addresses"`
-	ClusterAddresses  []string `yaml:"cluster_addresses"`
-	// for clustererd mode only, number of redirects to follow, defaults to 2
-	MaxRedirects *int `yaml:"max_redirects"`
+	Address           string
+	Username          string
+	Password          string
+	DB                int
+	UseTLS            bool
+	MasterName        string
+	SentinelUsername  string
+	SentinelPassword  string
+	SentinelAddresses []string
+	ClusterAddresses  []string
+	MaxRedirects      *int //  for clustererd mode only, number of redirects to follow, defaults to 2
+}
+
+type RedisComponent struct {
+	conf   *RedisConfig
+	client redis.UniversalClient
+}
+
+func NewRedisComponent(conf *RedisConfig) (*RedisComponent, error) {
+	if !conf.IsConfigured() {
+		return nil, ErrNotConfigured
+	}
+
+	client, err := newRedisClient(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RedisComponent{
+		conf:   conf,
+		client: client,
+	}, nil
+}
+
+func (c *RedisComponent) Client() redis.UniversalClient {
+	return c.client
+}
+
+func (c *RedisComponent) Config() *RedisConfig {
+	return c.conf
 }
 
 func (r *RedisConfig) IsConfigured() bool {
@@ -46,9 +74,9 @@ func (r *RedisConfig) GetMaxRedirects() int {
 	return 2
 }
 
-func GetRedisClient(conf *RedisConfig) (redis.UniversalClient, error) {
+func newRedisClient(conf *RedisConfig) (redis.UniversalClient, error) {
 	if conf == nil {
-		return nil, nil
+		return nil, errors.New("redis config is nil")
 	}
 
 	if !conf.IsConfigured() {

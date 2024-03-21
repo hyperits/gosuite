@@ -1,14 +1,20 @@
 package mail
 
 import (
-	"github.com/hyperits/gosuite/config"
 	"gopkg.in/gomail.v2"
 )
 
 // go get gopkg.in/gomail.v2
 
-type MailComp struct {
-	conf   *config.MailConfig
+type MailConfig struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+}
+
+type MailComponent struct {
+	conf   *MailConfig
 	dialer *gomail.Dialer
 }
 
@@ -23,14 +29,14 @@ type Body struct {
 	Settings    []gomail.PartSetting
 }
 
-func NewMailComp(conf *config.MailConfig) *MailComp {
-	return &MailComp{
+func NewMailComponent(conf *MailConfig) *MailComponent {
+	return &MailComponent{
 		conf:   conf,
 		dialer: gomail.NewDialer(conf.Host, conf.Port, conf.Username, conf.Password),
 	}
 }
 
-func (c *MailComp) DefaultFrom() string {
+func (c *MailComponent) DefaultFrom() string {
 	return c.conf.Username
 }
 
@@ -39,7 +45,7 @@ func (c *MailComp) DefaultFrom() string {
 // to: ["bob@example.com", "cora@example.com"]
 // subject: "Hello!"
 // body: "<h1>Hello bob!</h1>"
-func (c *MailComp) Send(from string, to []string, subject string, body *Body, cc *CarbonCopy) error {
+func (c *MailComponent) Send(from string, to []string, subject string, body *Body, cc *CarbonCopy) error {
 	m := gomail.NewMessage()
 	m.SetHeader("From", from)
 	m.SetHeader("To", to...)
