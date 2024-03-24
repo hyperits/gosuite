@@ -3,18 +3,18 @@ package logger
 import (
 	"fmt"
 	"os"
-	"os/signal"
-	"path/filepath"
-	"syscall"
-	"time"
+	"sync"
 
 	"github.com/hyperits/gosuite/debugger"
-	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-var log zerolog.Logger
+var (
+	log        zerolog.Logger
+	logFile    *lumberjack.Logger
+	logFileMux sync.Mutex
+)
 
 // Level defines log levels.
 type Level uint8
@@ -41,65 +41,53 @@ const (
 func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
-	logFile := "logs/app.log"
-	rotation := &lumberjack.Logger{
-		Filename:   logFile,
+	initLogger()
+	SetLevel(InfoLevel)
+}
+
+func initLogger() {
+	logFile = &lumberjack.Logger{
+		Filename:   "logs/app.log",
 		MaxSize:    32, // 每个日志文件的最大大小（兆字节）
 		MaxBackups: 15, // 保留的旧日志文件的最大数量
 		MaxAge:     15, // 保留的旧日志文件的最大天数
 		Compress:   true,
 	}
 
-	log = zerolog.New(rotation).With().Timestamp().Logger()
-	SetLevel(InfoLevel)
-
-	// 日志清理
-	// 使用 cron 定时清理日志
-	c := cron.New()
-	// 每天午夜运行清理任务
-	_, _ = c.AddFunc("0 0 * * *", func() {
-		cleanupLogs(logFile, 15)
-	})
-	c.Start()
-
-	signalChannel := make(chan os.Signal, 1)
-	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-signalChannel
-
-		// 在完成时关闭日志记录器和 cron 调度器
-		_ = rotation.Close()
-		c.Stop()
-	}()
+	multi := zerolog.MultiLevelWriter(logFile, os.Stdout)
+	log = zerolog.New(multi).With().Timestamp().Logger()
 }
 
-// cleanupLogs 删除早于 `days` 天的日志文件
-func cleanupLogs(logFile string, days int) {
-	log.Info().Msgf("Start cleanupLogs start with %v within %v days", logFile, days)
-	files, err := filepath.Glob(logFile + ".*")
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to list logfiles")
-		return
-	}
+// SetLogFileMaxSize 设置日志文件的最大大小（兆字节）。
+func SetLogFileMaxSize(sizeMB int) {
+	logFileMux.Lock()
+	defer logFileMux.Unlock()
+	logFile.MaxSize = sizeMB
+	initLogger()
+}
 
-	for _, file := range files {
-		fi, err := os.Stat(file)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to stat file info")
-			continue
-		}
+// SetLogFileMaxBackups 设置保留的旧日志文件的最大数量。
+func SetLogFileMaxBackups(backups int) {
+	logFileMux.Lock()
+	defer logFileMux.Unlock()
+	logFile.MaxBackups = backups
+	initLogger()
+}
 
-		diff := time.Since(fi.ModTime())
-		if diff.Hours() > float64(days*24) {
-			err := os.Remove(file)
-			if err != nil {
-				log.Error().Err(err).Msg("Failed to remove log file")
-			} else {
-				log.Info().Str("file", file).Msg("Remove log file success")
-			}
-		}
-	}
-	log.Info().Msgf("End cleanupLogs start with %v within %v days", logFile, days)
+// SetLogFileMaxAge 设置保留的旧日志文件的最大天数。
+func SetLogFileMaxAge(maxAge int) {
+	logFileMux.Lock()
+	defer logFileMux.Unlock()
+	logFile.MaxAge = maxAge
+	initLogger()
+}
+
+// SetLogFilePath 设置日志文件的路径。 e.g. logs/app.log
+func SetLogFilePath(path string) {
+	logFileMux.Lock()
+	defer logFileMux.Unlock()
+	logFile.Filename = path
+	initLogger()
 }
 
 func SetStrLevel(l string) error {
