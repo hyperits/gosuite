@@ -14,11 +14,11 @@ type CaptchaRedisStore struct {
 	ExpireTime int //过期时间 秒
 }
 
-func NewCaptchaRedisStore(rc redis.UniversalClient) *CaptchaRedisStore {
+func NewCaptchaRedisStore(rc redis.UniversalClient, expireTime int) *CaptchaRedisStore {
 	return &CaptchaRedisStore{
 		rc:         rc,
 		ctx:        context.Background(),
-		ExpireTime: 600,
+		ExpireTime: expireTime,
 	}
 }
 

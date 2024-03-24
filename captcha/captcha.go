@@ -14,15 +14,15 @@ const (
 	DefaultHeight = 100 // 验证码默认高度
 )
 
-type CaptchaComp struct {
+type CaptchaComponent struct {
 	CaptchaLen    int `json:"captcha_len"`    //验证码长度
 	CaptchaWidth  int `json:"captcha_width"`  //验证码图片宽度
 	CaptchaHeight int `json:"captcha_height"` //验证码图片高度
 	store         *CaptchaRedisStore
 }
 
-func NewCaptchaComp(store *CaptchaRedisStore, len int, width int, height int) *CaptchaComp {
-	comp := &CaptchaComp{
+func NewCaptchaComponent(store *CaptchaRedisStore, len int, width int, height int) *CaptchaComponent {
+	comp := &CaptchaComponent{
 		CaptchaLen:    len,
 		CaptchaWidth:  width,
 		CaptchaHeight: height,
@@ -36,7 +36,7 @@ func NewCaptchaComp(store *CaptchaRedisStore, len int, width int, height int) *C
 }
 
 // GetCaptcha 获取一个验证码 imageData 存放base64之后的图片信息
-func (c *CaptchaComp) GetCaptcha() (captchaId string, imageData string, err error) {
+func (c *CaptchaComponent) GetCaptcha() (captchaId string, imageData string, err error) {
 	captchaId = captcha.NewLen(c.CaptchaLen)
 	var image bytes.Buffer
 	err = captcha.WriteImage(&image, captchaId, c.CaptchaWidth, c.CaptchaHeight)
@@ -49,7 +49,7 @@ func (c *CaptchaComp) GetCaptcha() (captchaId string, imageData string, err erro
 
 // VerifyCaptcha 验证是否正确 digits 前端传过来的数字字符串验证码
 // 验证成功删除redis_key
-func (c *CaptchaComp) VerifyCaptcha(captchaId string, digits string) bool {
+func (c *CaptchaComponent) VerifyCaptcha(captchaId string, digits string) bool {
 	res := captcha.VerifyString(captchaId, digits)
 	if !res {
 		return false
@@ -61,7 +61,7 @@ func (c *CaptchaComp) VerifyCaptcha(captchaId string, digits string) bool {
 }
 
 // 验证参数
-func (c *CaptchaComp) verifyParma() {
+func (c *CaptchaComponent) verifyParma() {
 	if c.CaptchaLen <= 0 {
 		c.CaptchaLen = DefaultLen
 		logger.Warnf("Invalid captcha len, use default [%v]", DefaultLen)

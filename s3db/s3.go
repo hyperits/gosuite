@@ -1,22 +1,31 @@
-package s3
+package s3db
 
 import (
 	"context"
 	"io"
 	"strings"
 
-	"github.com/hyperits/gosuite/config"
 	"github.com/hyperits/gosuite/logger"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-type S3Client struct {
-	client *minio.Client
-	config *config.S3Config
+type S3Config struct {
+	Endpoint       string
+	AccessKey      string
+	Secret         string
+	Bucket         string
+	Region         string
+	Secure         bool
+	ForcePathStyle bool
 }
 
-func NewS3Client(config *config.S3Config) (*S3Client, error) {
+type S3Component struct {
+	client *minio.Client
+	config *S3Config
+}
+
+func NewS3Component(config *S3Config) (*S3Component, error) {
 	// Initialize minio client object.
 	var pathStyle minio.BucketLookupType
 	if config.ForcePathStyle {
@@ -35,7 +44,7 @@ func NewS3Client(config *config.S3Config) (*S3Client, error) {
 		return nil, err
 	}
 
-	comp := &S3Client{
+	comp := &S3Component{
 		client: s3Client,
 		config: config,
 	}
@@ -45,7 +54,7 @@ func NewS3Client(config *config.S3Config) (*S3Client, error) {
 	return comp, nil
 }
 
-func (c *S3Client) makeDefaultBucket() {
+func (c *S3Component) makeDefaultBucket() {
 	exists, err := c.client.BucketExists(context.Background(), c.config.Bucket)
 	if err != nil {
 		logger.Errorf("error check bucket exists [%s], [%s]", c.config.Bucket, err.Error())
@@ -60,15 +69,15 @@ func (c *S3Client) makeDefaultBucket() {
 	}
 }
 
-func (c *S3Client) GetClient() *minio.Client {
+func (c *S3Component) Client() *minio.Client {
 	return c.client
 }
 
-func (c *S3Client) GetConfig() *config.S3Config {
+func (c *S3Component) Config() *S3Config {
 	return c.config
 }
 
-func (c *S3Client) ListObjects(bucket string, prefix string, recursive bool) ([]minio.ObjectInfo, error) {
+func (c *S3Component) ListObjects(bucket string, prefix string, recursive bool) ([]minio.ObjectInfo, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -95,7 +104,7 @@ func (c *S3Client) ListObjects(bucket string, prefix string, recursive bool) ([]
 	return objects, nil
 }
 
-func (c *S3Client) GetObject(bucket string, objectName string, dst io.Writer) error {
+func (c *S3Component) GetObject(bucket string, objectName string, dst io.Writer) error {
 	if bucket == "" {
 		bucket = c.config.Bucket
 	}

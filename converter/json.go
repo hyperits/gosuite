@@ -13,7 +13,7 @@ import (
 func ToJsonString(v interface{}) string {
 	bytes, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
-		logger.ErrorRTf(debugger.GetCurrentFunctionInfo(), "ToJsonString: %v", err)
+		logger.ErrorRTf(debugger.GetCurrentFunctionInfo(), "ToJsonString error: %v", err)
 		return ""
 	}
 	return string(bytes)

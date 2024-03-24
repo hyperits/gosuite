@@ -3,12 +3,13 @@ package debugger
 import (
 	"errors"
 	"runtime"
+	"strings"
 )
 
 type RuntimeInfo struct {
 	File     string
 	Line     int
-	Function string
+	Function string // Function without package
 	Err      error
 }
 
@@ -26,6 +27,11 @@ func GetCurrentFunctionInfo() *RuntimeInfo {
 	}
 
 	function := runtime.FuncForPC(pc).Name()
+	parts := strings.Split(function, ".")
+	if len(parts) > 1 {
+		function = parts[len(parts)-1]
+	}
+
 	res.File = file
 	res.Line = line
 	res.Function = function

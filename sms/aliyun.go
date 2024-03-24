@@ -17,11 +17,11 @@ type AliSmsResp struct {
 
 const provider = "aliyun"
 
-func (c *SmsComp) AliyunEnabled() bool {
+func (c *SmsComponent) AliyunEnabled() bool {
 	return c.conf.Provider == provider
 }
 
-func (c *SmsComp) SendByAliyun(mobile string, code string) error {
+func (c *SmsComponent) SendByAliyun(mobile string, code string) error {
 	if c.conf.Provider != provider {
 		return fmt.Errorf("invalid sms provider for aliyun: %v", c.conf.Provider)
 	}

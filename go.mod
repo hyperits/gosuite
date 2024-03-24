@@ -13,7 +13,6 @@ require (
 	golang.org/x/crypto v0.17.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
-	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.5.2
 	gorm.io/gorm v1.25.5
 )
@@ -44,4 +43,5 @@ require (
 	golang.org/x/text v0.14.0 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
