@@ -40,6 +40,7 @@ type RequestOptions struct {
 	Headers        map[string]string
 	Body           io.Reader
 	RequestTimeout time.Duration
+	Transport      http.RoundTripper
 }
 
 type RequestOption func(*RequestOptions)
@@ -74,12 +75,19 @@ func WithRequestTimeout(timeout time.Duration) RequestOption {
 	}
 }
 
+func WithTransport(transport http.RoundTripper) RequestOption {
+	return func(opts *RequestOptions) {
+		opts.Transport = transport
+	}
+}
+
 func NewRequestOptions(options ...RequestOption) *RequestOptions {
 	opts := &RequestOptions{
 		Method:         GET,
 		Headers:        make(map[string]string),
 		Body:           bytes.NewReader([]byte{}),
-		RequestTimeout: 10 * time.Second,
+		RequestTimeout: 60 * time.Second,
+		Transport:      http.DefaultTransport,
 	}
 	for _, option := range options {
 		option(opts)
@@ -109,10 +117,11 @@ func (c *Client) DoRequest(options RequestOptions) (*http.Response, error) {
 		req.Header.Set(key, value)
 	}
 
-	client := &http.Client{
-		Timeout: options.RequestTimeout,
-	}
-	resp, err := client.Do(req)
+	c.client.Timeout = options.RequestTimeout
+
+	c.client.Transport = options.Transport
+
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}

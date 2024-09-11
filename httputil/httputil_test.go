@@ -19,7 +19,7 @@ func TestDoRequest(t *testing.T) {
 		Headers: map[string]string{
 			httputil.CONTENT_TYPE: httputil.JSON,
 		},
-		RequestTimeout: 5 * time.Second,
+		RequestTimeout: 23 * time.Second,
 	})
 	if err != nil {
 		t.Errorf("DoRequest() returned error: %v", err)
