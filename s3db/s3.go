@@ -1,9 +1,9 @@
 package s3db
 
 import (
+	"bytes"
 	"context"
 	"io"
-	"strings"
 
 	"github.com/hyperits/gosuite/logger"
 	"github.com/minio/minio-go/v7"
@@ -26,7 +26,6 @@ type S3Component struct {
 }
 
 func NewS3Component(config *S3Config) (*S3Component, error) {
-	// Initialize minio client object.
 	var pathStyle minio.BucketLookupType
 	if config.ForcePathStyle {
 		pathStyle = minio.BucketLookupPath
@@ -57,14 +56,14 @@ func NewS3Component(config *S3Config) (*S3Component, error) {
 func (c *S3Component) makeDefaultBucket() {
 	exists, err := c.client.BucketExists(context.Background(), c.config.Bucket)
 	if err != nil {
-		logger.Errorf("error check bucket exists [%s], [%s]", c.config.Bucket, err.Error())
+		logger.Errorf("error checking bucket exists [%s], [%s]", c.config.Bucket, err.Error())
 		return
 	}
 
 	if !exists {
 		err := c.client.MakeBucket(context.Background(), c.config.Bucket, minio.MakeBucketOptions{})
 		if err != nil {
-			logger.Errorf("error create bucket [%s], [%s]", c.config.Bucket, err.Error())
+			logger.Errorf("error creating bucket [%s], [%s]", c.config.Bucket, err.Error())
 		}
 	}
 }
@@ -77,6 +76,7 @@ func (c *S3Component) Config() *S3Config {
 	return c.config
 }
 
+// ListObjects lists objects with a specified prefix and recursive flag
 func (c *S3Component) ListObjects(bucket string, prefix string, recursive bool) ([]minio.ObjectInfo, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -95,15 +95,12 @@ func (c *S3Component) ListObjects(bucket string, prefix string, recursive bool) 
 		if object.Err != nil {
 			return nil, object.Err
 		}
-		if !strings.HasSuffix(object.Key, ".mp4") {
-			// ignore json
-			continue
-		}
 		objects = append(objects, object)
 	}
 	return objects, nil
 }
 
+// GetObject fetches an object and writes it to a destination writer
 func (c *S3Component) GetObject(bucket string, objectName string, dst io.Writer) error {
 	if bucket == "" {
 		bucket = c.config.Bucket
@@ -118,4 +115,74 @@ func (c *S3Component) GetObject(bucket string, objectName string, dst io.Writer)
 		return err
 	}
 	return nil
+}
+
+// UploadObject uploads an object to the specified bucket
+func (c *S3Component) UploadObject(bucket string, objectName string, data io.Reader, size int64, contentType string) error {
+	if bucket == "" {
+		bucket = c.config.Bucket
+	}
+	_, err := c.client.PutObject(context.Background(), bucket, objectName, data, size, minio.PutObjectOptions{
+		ContentType: contentType,
+	})
+	return err
+}
+
+// DeleteObject deletes an object from the specified bucket
+func (c *S3Component) DeleteObject(bucket string, objectName string) error {
+	if bucket == "" {
+		bucket = c.config.Bucket
+	}
+	return c.client.RemoveObject(context.Background(), bucket, objectName, minio.RemoveObjectOptions{})
+}
+
+// CopyObject copies an object to another location
+func (c *S3Component) CopyObject(srcBucket, srcObject, dstBucket, dstObject string) error {
+	if srcBucket == "" {
+		srcBucket = c.config.Bucket
+	}
+	if dstBucket == "" {
+		dstBucket = c.config.Bucket
+	}
+
+	src := minio.CopySrcOptions{
+		Bucket: srcBucket,
+		Object: srcObject,
+	}
+	dst := minio.CopyDestOptions{
+		Bucket: dstBucket,
+		Object: dstObject,
+	}
+	_, err := c.client.CopyObject(context.Background(), dst, src)
+	return err
+}
+
+// DeleteObjectsByPrefix deletes all objects with a specific prefix
+func (c *S3Component) DeleteObjectsByPrefix(bucket, prefix string) error {
+	if bucket == "" {
+		bucket = c.config.Bucket
+	}
+	ctx := context.Background()
+
+	objectCh := c.client.ListObjects(ctx, bucket, minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: true,
+	})
+
+	for object := range objectCh {
+		if object.Err != nil {
+			return object.Err
+		}
+		err := c.client.RemoveObject(ctx, bucket, object.Key, minio.RemoveObjectOptions{})
+		if err != nil {
+			logger.Errorf("error deleting object [%s], [%s]", object.Key, err.Error())
+		}
+	}
+	return nil
+}
+
+// UploadObjectFromBytes uploads an object using a byte slice as source
+func (c *S3Component) UploadObjectFromBytes(bucket string, objectName string, data []byte, contentType string) error {
+	reader := bytes.NewReader(data)
+	return c.UploadObject(bucket, objectName, reader, int64(len(data)), contentType)
 }
