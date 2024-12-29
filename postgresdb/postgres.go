@@ -46,7 +46,7 @@ func (c *PostgresComponent) Config() *PostgresConfig {
 
 func newPostgres(conf *PostgresConfig) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s timezone=%s",
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
 		conf.Host,
 		conf.Port,
 		conf.Username,
