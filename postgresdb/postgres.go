@@ -16,6 +16,7 @@ type PostgresConfig struct {
 	Password string
 	DbName   string
 	SSLMode  string
+	TimeZone string
 }
 
 type PostgresComponent struct {
@@ -45,13 +46,14 @@ func (c *PostgresComponent) Config() *PostgresConfig {
 
 func newPostgres(conf *PostgresConfig) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s timezone=%s",
 		conf.Host,
 		conf.Port,
 		conf.Username,
 		conf.Password,
 		conf.DbName,
 		conf.SSLMode,
+		conf.TimeZone,
 	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
