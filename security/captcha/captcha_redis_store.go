@@ -8,40 +8,63 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// CaptchaRedisStore 基于 Redis 的验证码存储
+// 实现 github.com/dchest/captcha.Store 接口
 type CaptchaRedisStore struct {
 	rc                redis.UniversalClient
-	ctx               context.Context
-	expireTimeSeconds int //过期时间 秒
+	expireTimeSeconds int // 过期时间（秒）
 }
 
+// NewCaptchaRedisStore 创建基于 Redis 的验证码存储
 func NewCaptchaRedisStore(rc redis.UniversalClient, expireTimeSeconds int) *CaptchaRedisStore {
+	if expireTimeSeconds <= 0 {
+		expireTimeSeconds = 300 // 默认 5 分钟
+	}
 	return &CaptchaRedisStore{
 		rc:                rc,
-		ctx:               context.Background(),
 		expireTimeSeconds: expireTimeSeconds,
 	}
 }
 
+// Set 存储验证码
 func (rs *CaptchaRedisStore) Set(id string, digits []byte) {
-	_, err := rs.rc.Set(rs.ctx, id, string(digits), time.Duration(rs.expireTimeSeconds)*time.Second).Result()
+	ctx := context.Background()
+	_, err := rs.rc.Set(ctx, rs.key(id), string(digits), time.Duration(rs.expireTimeSeconds)*time.Second).Result()
 	if err != nil {
 		log.Errorf("CaptchaRedisStore set %v failed: %v", id, err)
-		return
 	}
 }
 
+// Get 获取验证码
+// clear 为 true 时，获取后立即删除验证码（防止重复使用）
 func (rs *CaptchaRedisStore) Get(id string, clear bool) (digits []byte) {
-	v, err := rs.rc.Get(rs.ctx, id).Result()
+	ctx := context.Background()
+	v, err := rs.rc.Get(ctx, rs.key(id)).Result()
 	if err != nil {
-		log.Errorf("CaptchaRedisStore get %v failed: %v", id, err)
-		return
+		if err != redis.Nil {
+			log.Errorf("CaptchaRedisStore get %v failed: %v", id, err)
+		}
+		return nil
 	}
+
+	// 如果 clear 为 true，获取后删除验证码
+	if clear {
+		rs.Del(id)
+	}
+
 	return []byte(v)
 }
 
+// Del 删除验证码
 func (rs *CaptchaRedisStore) Del(key string) {
-	_, err := rs.rc.Del(rs.ctx, key).Result()
+	ctx := context.Background()
+	_, err := rs.rc.Del(ctx, rs.key(key)).Result()
 	if err != nil {
 		log.Errorf("CaptchaRedisStore del %v failed: %v", key, err)
 	}
+}
+
+// key 生成存储键，添加前缀避免键冲突
+func (rs *CaptchaRedisStore) key(id string) string {
+	return "captcha:" + id
 }

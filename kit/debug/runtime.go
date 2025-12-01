@@ -6,13 +6,15 @@ import (
 	"strings"
 )
 
+// RuntimeInfo 运行时信息结构体
 type RuntimeInfo struct {
-	File     string
-	Line     int
-	Function string // Function without package
-	Err      error
+	File     string // 文件路径
+	Line     int    // 行号
+	Function string // 函数名（不含包名）
+	Err      error  // 错误信息
 }
 
+// GetCurrentFunctionInfo 获取当前函数的运行时信息
 func GetCurrentFunctionInfo() *RuntimeInfo {
 	res := &RuntimeInfo{
 		File:     "init",

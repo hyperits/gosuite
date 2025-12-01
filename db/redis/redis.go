@@ -3,15 +3,16 @@ package redis
 import (
 	"context"
 	"crypto/tls"
+	"sync"
+	"time"
 
+	"github.com/hyperits/gosuite/errors"
 	"github.com/hyperits/gosuite/log"
-	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
 )
 
-var ErrNotConfigured = errors.New("Redis is not configured")
-
-type RedisConfig struct {
+// Config Redis 配置
+type Config struct {
 	Address           string
 	Username          string
 	Password          string
@@ -22,39 +23,115 @@ type RedisConfig struct {
 	SentinelPassword  string
 	SentinelAddresses []string
 	ClusterAddresses  []string
-	MaxRedirects      *int //  for clustererd mode only, number of redirects to follow, defaults to 2
+	MaxRedirects      *int // 仅集群模式，重定向次数，默认 2
 }
 
-type RedisClient struct {
-	conf   *RedisConfig
+// Client Redis 客户端
+type Client struct {
+	conf   *Config
 	client redis.UniversalClient
+	closed bool
+	mu     sync.RWMutex
 }
 
-func NewRedisClient(conf *RedisConfig) (*RedisClient, error) {
-	if !conf.IsConfigured() {
-		return nil, ErrNotConfigured
+// NewClient 创建 Redis 客户端
+func NewClient(conf *Config) (*Client, error) {
+	if conf == nil {
+		return nil, errors.ErrNilConfig
 	}
 
-	client, err := newRedisClient(conf)
+	if !conf.IsConfigured() {
+		return nil, errors.ErrNotConfigured
+	}
+
+	client, err := connect(conf)
 	if err != nil {
 		return nil, err
 	}
 
-	return &RedisClient{
+	return &Client{
 		conf:   conf,
 		client: client,
 	}, nil
 }
 
-func (c *RedisClient) Client() redis.UniversalClient {
+// UniversalClient 返回底层的 Redis 客户端
+func (c *Client) UniversalClient() redis.UniversalClient {
 	return c.client
 }
 
-func (c *RedisClient) Config() *RedisConfig {
+// GetConfig 返回 Redis 配置
+func (c *Client) GetConfig() *Config {
 	return c.conf
 }
 
-func (r *RedisConfig) IsConfigured() bool {
+// Close 关闭 Redis 连接
+func (c *Client) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.closed {
+		return errors.ErrAlreadyClosed
+	}
+
+	c.closed = true
+	return c.client.Close()
+}
+
+// Ping 测试 Redis 连接
+func (c *Client) Ping(ctx context.Context) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.closed {
+		return errors.ErrAlreadyClosed
+	}
+
+	return c.client.Ping(ctx).Err()
+}
+
+// IsConnected 检查是否已连接
+func (c *Client) IsConnected() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.closed {
+		return false
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	return c.client.Ping(ctx).Err() == nil
+}
+
+// Get 获取值
+func (c *Client) Get(ctx context.Context, key string) (string, error) {
+	return c.client.Get(ctx, key).Result()
+}
+
+// Set 设置值（无过期时间）
+func (c *Client) Set(ctx context.Context, key string, value interface{}) error {
+	return c.client.Set(ctx, key, value, 0).Err()
+}
+
+// SetWithTTL 设置值并指定过期时间
+func (c *Client) SetWithTTL(ctx context.Context, key string, value interface{}, ttlSeconds int) error {
+	return c.client.Set(ctx, key, value, time.Duration(ttlSeconds)*time.Second).Err()
+}
+
+// Del 删除键
+func (c *Client) Del(ctx context.Context, keys ...string) error {
+	return c.client.Del(ctx, keys...).Err()
+}
+
+// Exists 检查键是否存在
+func (c *Client) Exists(ctx context.Context, keys ...string) (int64, error) {
+	return c.client.Exists(ctx, keys...).Result()
+}
+
+// IsConfigured 检查配置是否有效
+func (r *Config) IsConfigured() bool {
 	if r.Address != "" {
 		return true
 	}
@@ -67,24 +144,17 @@ func (r *RedisConfig) IsConfigured() bool {
 	return false
 }
 
-func (r *RedisConfig) GetMaxRedirects() int {
+// GetMaxRedirects 获取最大重定向次数
+func (r *Config) GetMaxRedirects() int {
 	if r.MaxRedirects != nil {
 		return *r.MaxRedirects
 	}
 	return 2
 }
 
-func newRedisClient(conf *RedisConfig) (redis.UniversalClient, error) {
-	if conf == nil {
-		return nil, errors.New("redis config is nil")
-	}
-
-	if !conf.IsConfigured() {
-		return nil, ErrNotConfigured
-	}
-
+// connect 连接到 Redis
+func connect(conf *Config) (redis.UniversalClient, error) {
 	var rcOptions *redis.UniversalOptions
-	var rc redis.UniversalClient
 	var tlsConfig *tls.Config
 
 	if conf.UseTLS {
@@ -93,8 +163,9 @@ func newRedisClient(conf *RedisConfig) (redis.UniversalClient, error) {
 		}
 	}
 
-	if len(conf.SentinelAddresses) > 0 {
-		log.Infof("connecting to redis %v %v addr %v masterName %v", "sentinel", true, conf.SentinelAddresses, conf.MasterName)
+	switch {
+	case len(conf.SentinelAddresses) > 0:
+		log.Infof("connecting to redis sentinel, addr: %v, master: %v", conf.SentinelAddresses, conf.MasterName)
 		rcOptions = &redis.UniversalOptions{
 			Addrs:            conf.SentinelAddresses,
 			SentinelUsername: conf.SentinelUsername,
@@ -105,8 +176,8 @@ func newRedisClient(conf *RedisConfig) (redis.UniversalClient, error) {
 			DB:               conf.DB,
 			TLSConfig:        tlsConfig,
 		}
-	} else if len(conf.ClusterAddresses) > 0 {
-		log.Infof("connecting to redis %v %v addr %v", "cluster", true, conf.ClusterAddresses)
+	case len(conf.ClusterAddresses) > 0:
+		log.Infof("connecting to redis cluster, addr: %v", conf.ClusterAddresses)
 		rcOptions = &redis.UniversalOptions{
 			Addrs:        conf.ClusterAddresses,
 			Username:     conf.Username,
@@ -115,8 +186,8 @@ func newRedisClient(conf *RedisConfig) (redis.UniversalClient, error) {
 			TLSConfig:    tlsConfig,
 			MaxRedirects: conf.GetMaxRedirects(),
 		}
-	} else {
-		log.Infof("connecting to redis %v %v addr %v", "simple", true, conf.Address)
+	default:
+		log.Infof("connecting to redis standalone, addr: %v", conf.Address)
 		rcOptions = &redis.UniversalOptions{
 			Addrs:     []string{conf.Address},
 			Username:  conf.Username,
@@ -125,11 +196,14 @@ func newRedisClient(conf *RedisConfig) (redis.UniversalClient, error) {
 			TLSConfig: tlsConfig,
 		}
 	}
-	rc = redis.NewUniversalClient(rcOptions)
 
-	if err := rc.Ping(context.Background()).Err(); err != nil {
-		err = errors.Wrap(err, "unable to connect to redis")
-		return nil, err
+	rc := redis.NewUniversalClient(rcOptions)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := rc.Ping(ctx).Err(); err != nil {
+		return nil, errors.Wrap(err, "redis.connect")
 	}
 
 	return rc, nil

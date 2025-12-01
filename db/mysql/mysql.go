@@ -1,52 +1,121 @@
 package mysql
 
 import (
+	"context"
 	"fmt"
+	"sync"
+	"time"
 
+	"github.com/hyperits/gosuite/errors"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 )
 
-type MySQLConfig struct {
+// Config MySQL 数据库配置
+type Config struct {
 	Host     string
 	Port     int
 	Username string
 	Password string
 	DbName   string
+
+	// 连接池配置
+	MaxOpenConns    int           // 最大打开连接数，默认 25
+	MaxIdleConns    int           // 最大空闲连接数，默认 10
+	ConnMaxLifetime time.Duration // 连接最大生命周期，默认 5 分钟
+	ConnMaxIdleTime time.Duration // 空闲连接最大生命周期，默认 5 分钟
 }
 
-// MySQLClient 提供MySQL数据库连接和操作的客户端
-type MySQLClient struct {
-	db   *gorm.DB
-	conf *MySQLConfig
+// Client 提供 MySQL 数据库连接和操作的客户端
+type Client struct {
+	db     *gorm.DB
+	conf   *Config
+	closed bool
+	mu     sync.RWMutex
 }
 
-// NewMySQLClient 创建一个新的MySQL客户端实例
-func NewMySQLClient(conf *MySQLConfig) (*MySQLClient, error) {
-	db, err := connectMySQL(conf)
+// NewClient 创建一个新的 MySQL 客户端实例
+func NewClient(conf *Config) (*Client, error) {
+	if conf == nil {
+		return nil, errors.ErrNilConfig
+	}
+
+	db, err := connect(conf)
 	if err != nil {
 		return nil, err
 	}
 
-	return &MySQLClient{
+	return &Client{
 		db:   db,
 		conf: conf,
 	}, nil
 }
 
-// DB 返回底层的gorm数据库连接
-func (c *MySQLClient) DB() *gorm.DB {
+// DB 返回底层的 gorm 数据库连接
+func (c *Client) DB() *gorm.DB {
 	return c.db
 }
 
-// Config 返回MySQL配置信息
-func (c *MySQLClient) Config() *MySQLConfig {
+// GetConfig 返回 MySQL 配置信息
+func (c *Client) GetConfig() *Config {
 	return c.conf
 }
 
-// connectMySQL 连接到MySQL数据库并返回数据库连接
-func connectMySQL(conf *MySQLConfig) (*gorm.DB, error) {
+// Close 关闭数据库连接
+func (c *Client) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.closed {
+		return errors.ErrAlreadyClosed
+	}
+
+	sqlDB, err := c.db.DB()
+	if err != nil {
+		return errors.Wrap(err, "mysql.close")
+	}
+
+	c.closed = true
+	return sqlDB.Close()
+}
+
+// Ping 测试数据库连接
+func (c *Client) Ping(ctx context.Context) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.closed {
+		return errors.ErrAlreadyClosed
+	}
+
+	sqlDB, err := c.db.DB()
+	if err != nil {
+		return errors.Wrap(err, "mysql.ping")
+	}
+
+	return sqlDB.PingContext(ctx)
+}
+
+// IsConnected 检查是否已连接
+func (c *Client) IsConnected() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.closed {
+		return false
+	}
+
+	sqlDB, err := c.db.DB()
+	if err != nil {
+		return false
+	}
+
+	return sqlDB.Ping() == nil
+}
+
+// connect 连接到 MySQL 数据库并返回数据库连接
+func connect(conf *Config) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		conf.Username,
@@ -64,6 +133,37 @@ func connectMySQL(conf *MySQLConfig) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("connect mysql failed: %w", err)
 	}
+
+	// 配置连接池
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("get underlying sql.DB failed: %w", err)
+	}
+
+	// 设置连接池参数（使用默认值或配置值）
+	maxOpenConns := conf.MaxOpenConns
+	if maxOpenConns <= 0 {
+		maxOpenConns = 25
+	}
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+
+	maxIdleConns := conf.MaxIdleConns
+	if maxIdleConns <= 0 {
+		maxIdleConns = 10
+	}
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+
+	connMaxLifetime := conf.ConnMaxLifetime
+	if connMaxLifetime <= 0 {
+		connMaxLifetime = 5 * time.Minute
+	}
+	sqlDB.SetConnMaxLifetime(connMaxLifetime)
+
+	connMaxIdleTime := conf.ConnMaxIdleTime
+	if connMaxIdleTime <= 0 {
+		connMaxIdleTime = 5 * time.Minute
+	}
+	sqlDB.SetConnMaxIdleTime(connMaxIdleTime)
 
 	return db, nil
 }
