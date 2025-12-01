@@ -84,3 +84,58 @@ func TestWithContext(t *testing.T) {
 
 	t.Logf("Get with context returned status code %d", resp.StatusCode)
 }
+
+func TestNewClientWithTimeout(t *testing.T) {
+	// 测试使用客户端默认超时
+	client := httpx.NewClientWithTimeout(30 * time.Second)
+	resp, err := client.Get("https://echo.free.beeceptor.com")
+	if err != nil {
+		t.Errorf("Get with client timeout returned error: %v", err)
+		return
+	}
+
+	t.Logf("Get with client timeout returned status code %d", resp.StatusCode)
+}
+
+func TestNewClientWithOptions(t *testing.T) {
+	// 测试使用客户端选项
+	client := httpx.NewClient(
+		httpx.WithDefaultTimeout(30*time.Second),
+		httpx.WithDefaultTransport(http.DefaultTransport),
+	)
+	resp, err := client.Get("https://echo.free.beeceptor.com")
+	if err != nil {
+		t.Errorf("Get with client options returned error: %v", err)
+		return
+	}
+
+	t.Logf("Get with client options returned status code %d", resp.StatusCode)
+}
+
+func TestRequestTimeoutOverride(t *testing.T) {
+	// 测试请求级别的超时覆盖客户端默认超时
+	client := httpx.NewClientWithTimeout(1 * time.Second)
+	resp, err := client.Get(
+		"https://echo.free.beeceptor.com",
+		httpx.WithRequestTimeout(30*time.Second), // 覆盖客户端的 1 秒超时
+	)
+	if err != nil {
+		t.Errorf("Get with request timeout override returned error: %v", err)
+		return
+	}
+
+	t.Logf("Get with request timeout override returned status code %d", resp.StatusCode)
+}
+
+func TestPatch(t *testing.T) {
+	resp, err := httpx.NewClient().Patch(
+		"https://echo.free.beeceptor.com",
+		httpx.WithJSONBody(strings.NewReader(`{"update": "data"}`)),
+	)
+	if err != nil {
+		t.Errorf("Patch() returned error: %v", err)
+		return
+	}
+
+	t.Logf("Patch() returned status code %d", resp.StatusCode)
+}

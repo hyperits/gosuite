@@ -27,6 +27,23 @@ type Config struct {
 	ConnMaxIdleTime time.Duration // 空闲连接最大生命周期，默认 5 分钟
 }
 
+// Validate 验证配置是否有效
+func (c *Config) Validate() error {
+	if c.Host == "" {
+		return errors.New("mysql: host is required")
+	}
+	if c.Port <= 0 {
+		return errors.New("mysql: port must be positive")
+	}
+	if c.Username == "" {
+		return errors.New("mysql: username is required")
+	}
+	if c.DbName == "" {
+		return errors.New("mysql: database name is required")
+	}
+	return nil
+}
+
 // Client 提供 MySQL 数据库连接和操作的客户端
 type Client struct {
 	db     *gorm.DB
@@ -39,6 +56,10 @@ type Client struct {
 func NewClient(conf *Config) (*Client, error) {
 	if conf == nil {
 		return nil, errors.ErrNilConfig
+	}
+
+	if err := conf.Validate(); err != nil {
+		return nil, err
 	}
 
 	db, err := connect(conf)

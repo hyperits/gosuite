@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 )
 
-// ObjectToMap 将一个任意类型的对象转换为map[string]interface{}类型
-// 参数obj是待转换的对象
-// 返回值是一个指向map[string]interface{}的指针和一个error
-func ObjectToMap(obj interface{}) (*map[string]interface{}, error) {
-
+// ObjectToMap 将一个任意类型的对象转换为 map[string]interface{} 类型
+// 参数 obj 是待转换的对象
+// 返回值是 map[string]interface{} 和 error
+func ObjectToMap(obj interface{}) (map[string]interface{}, error) {
 	bits, err := json.Marshal(obj)
 	if err != nil {
 		return nil, err
@@ -20,5 +19,5 @@ func ObjectToMap(obj interface{}) (*map[string]interface{}, error) {
 		return nil, err
 	}
 
-	return &mp, nil
+	return mp, nil
 }

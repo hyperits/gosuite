@@ -31,7 +31,7 @@
 | `kit/conv` | 类型转换工具，包括对象转 JSON、对象转 Map |
 | `kit/debug` | 运行时信息获取，如当前函数名、文件、行号 |
 
-### log - 日志
+### logger - 日志
 
 基于 [zerolog](https://github.com/rs/zerolog) 的日志组件，支持：
 

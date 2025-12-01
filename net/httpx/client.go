@@ -14,7 +14,8 @@ import (
 
 // Client HTTP 客户端
 type Client struct {
-	client *http.Client
+	transport      http.RoundTripper // 传输层（线程安全，可复用）
+	defaultTimeout time.Duration     // 默认超时时间
 }
 
 // HTTP 方法常量
@@ -61,14 +62,17 @@ const (
 	STREAM = ContentTypeStream
 )
 
+// 默认超时时间
+const DefaultTimeout = 60 * time.Second
+
 // RequestOptions 请求配置
 type RequestOptions struct {
 	Method         string            // 请求方法
 	URL            string            // 请求 URL
 	Headers        map[string]string // 请求头
 	Body           io.Reader         // 请求体
-	RequestTimeout time.Duration     // 请求超时时间
-	Transport      http.RoundTripper // 传输层
+	RequestTimeout time.Duration     // 请求超时时间（0 表示使用客户端默认超时）
+	Transport      http.RoundTripper // 传输层（nil 表示使用客户端默认传输层）
 	Context        context.Context   // 上下文
 }
 
@@ -151,8 +155,8 @@ func NewRequestOptions(options ...RequestOption) *RequestOptions {
 		Method:         GET,
 		Headers:        make(map[string]string),
 		Body:           bytes.NewReader([]byte{}),
-		RequestTimeout: 60 * time.Second,
-		Transport:      http.DefaultTransport,
+		RequestTimeout: 0, // 0 表示使用客户端默认超时
+		Transport:      nil,
 		Context:        context.Background(),
 	}
 	for _, option := range options {
@@ -169,25 +173,65 @@ type Response struct {
 	RawBody    []byte            // 原始响应体
 }
 
-// NewClient 创建 HTTP 客户端
-func NewClient() *Client {
-	return &Client{
-		client: &http.Client{},
+// ClientOption 客户端配置选项函数
+type ClientOption func(*Client)
+
+// WithDefaultTimeout 设置客户端默认超时
+func WithDefaultTimeout(timeout time.Duration) ClientOption {
+	return func(c *Client) {
+		c.defaultTimeout = timeout
 	}
+}
+
+// WithDefaultTransport 设置客户端默认传输层
+func WithDefaultTransport(transport http.RoundTripper) ClientOption {
+	return func(c *Client) {
+		c.transport = transport
+	}
+}
+
+// NewClient 创建 HTTP 客户端
+func NewClient(options ...ClientOption) *Client {
+	c := &Client{
+		transport:      http.DefaultTransport,
+		defaultTimeout: DefaultTimeout,
+	}
+	for _, option := range options {
+		option(c)
+	}
+	return c
 }
 
 // NewClientWithTimeout 创建带超时的 HTTP 客户端
 func NewClientWithTimeout(timeout time.Duration) *Client {
-	return &Client{
-		client: &http.Client{
-			Timeout: timeout,
-		},
-	}
+	return NewClient(WithDefaultTimeout(timeout))
 }
 
 // DoRequest 执行 HTTP 请求
 func (c *Client) DoRequest(options RequestOptions) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(options.Context, options.Method, options.URL, options.Body)
+	// 确定超时时间
+	timeout := options.RequestTimeout
+	if timeout <= 0 {
+		timeout = c.defaultTimeout
+	}
+
+	// 确定传输层
+	transport := options.Transport
+	if transport == nil {
+		transport = c.transport
+	}
+
+	// 使用 context 控制超时，这是线程安全的方式
+	ctx := options.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// 创建带超时的 context
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, options.Method, options.URL, options.Body)
 	if err != nil {
 		return nil, errors.Wrap(err, "httpx.create_request")
 	}
@@ -196,10 +240,13 @@ func (c *Client) DoRequest(options RequestOptions) (*http.Response, error) {
 		req.Header.Set(key, value)
 	}
 
-	c.client.Timeout = options.RequestTimeout
-	c.client.Transport = options.Transport
+	// 使用共享的 transport（线程安全）
+	client := &http.Client{
+		Transport: transport,
+		// 不设置 Timeout，使用 context 控制超时
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "httpx.do_request")
 	}
@@ -272,6 +319,42 @@ func (c *Client) Put(url string, options ...RequestOption) (*Response, error) {
 func (c *Client) Delete(url string, options ...RequestOption) (*Response, error) {
 	opts := NewRequestOptions(options...)
 	opts.Method = DELETE
+	opts.URL = url
+	resp, err := c.DoRequest(*opts)
+	if err != nil {
+		return nil, err
+	}
+	return c.WrapHttpResponse(resp)
+}
+
+// Patch 发送 PATCH 请求
+func (c *Client) Patch(url string, options ...RequestOption) (*Response, error) {
+	opts := NewRequestOptions(options...)
+	opts.Method = MethodPatch
+	opts.URL = url
+	resp, err := c.DoRequest(*opts)
+	if err != nil {
+		return nil, err
+	}
+	return c.WrapHttpResponse(resp)
+}
+
+// Head 发送 HEAD 请求
+func (c *Client) Head(url string, options ...RequestOption) (*Response, error) {
+	opts := NewRequestOptions(options...)
+	opts.Method = HEAD
+	opts.URL = url
+	resp, err := c.DoRequest(*opts)
+	if err != nil {
+		return nil, err
+	}
+	return c.WrapHttpResponse(resp)
+}
+
+// Options 发送 OPTIONS 请求
+func (c *Client) Options(url string, options ...RequestOption) (*Response, error) {
+	opts := NewRequestOptions(options...)
+	opts.Method = OPTIONS
 	opts.URL = url
 	resp, err := c.DoRequest(*opts)
 	if err != nil {

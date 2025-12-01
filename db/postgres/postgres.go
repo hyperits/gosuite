@@ -19,14 +19,31 @@ type Config struct {
 	Username string
 	Password string
 	DbName   string
-	SSLMode  string
-	TimeZone string
+	SSLMode  string // 默认 "disable"
+	TimeZone string // 默认 "Asia/Shanghai"
 
 	// 连接池配置
 	MaxOpenConns    int           // 最大打开连接数，默认 25
 	MaxIdleConns    int           // 最大空闲连接数，默认 10
 	ConnMaxLifetime time.Duration // 连接最大生命周期，默认 5 分钟
 	ConnMaxIdleTime time.Duration // 空闲连接最大生命周期，默认 5 分钟
+}
+
+// Validate 验证配置是否有效
+func (c *Config) Validate() error {
+	if c.Host == "" {
+		return errors.New("postgres: host is required")
+	}
+	if c.Port <= 0 {
+		return errors.New("postgres: port must be positive")
+	}
+	if c.Username == "" {
+		return errors.New("postgres: username is required")
+	}
+	if c.DbName == "" {
+		return errors.New("postgres: database name is required")
+	}
+	return nil
 }
 
 // Client PostgreSQL 数据库客户端
@@ -41,6 +58,10 @@ type Client struct {
 func NewClient(conf *Config) (*Client, error) {
 	if conf == nil {
 		return nil, errors.ErrNilConfig
+	}
+
+	if err := conf.Validate(); err != nil {
+		return nil, err
 	}
 
 	db, err := connect(conf)
@@ -118,6 +139,16 @@ func (c *Client) IsConnected() bool {
 
 // connect 连接到 PostgreSQL 数据库并返回数据库连接
 func connect(conf *Config) (*gorm.DB, error) {
+	// 设置默认值
+	sslMode := conf.SSLMode
+	if sslMode == "" {
+		sslMode = "disable"
+	}
+	timeZone := conf.TimeZone
+	if timeZone == "" {
+		timeZone = "Asia/Shanghai"
+	}
+
 	dsn := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
 		conf.Host,
@@ -125,8 +156,8 @@ func connect(conf *Config) (*gorm.DB, error) {
 		conf.Username,
 		conf.Password,
 		conf.DbName,
-		conf.SSLMode,
-		conf.TimeZone,
+		sslMode,
+		timeZone,
 	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
