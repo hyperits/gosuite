@@ -1,4 +1,4 @@
-package log
+package logger
 
 import (
 	"fmt"
@@ -316,3 +316,4 @@ func WithFields(fields map[string]interface{}) *zerolog.Event {
 func Logger() zerolog.Logger {
 	return logger
 }
+

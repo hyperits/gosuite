@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/hyperits/gosuite/log"
+	"github.com/hyperits/gosuite/logger"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -85,7 +85,7 @@ func (c *CodeClient) generateSecureCode() (string, error) {
 func (c *CodeClient) setCode(ctx context.Context, key string, value string) error {
 	_, err := c.client.Set(ctx, key, value, time.Duration(c.expireTimeSeconds)*time.Second).Result()
 	if err != nil {
-		log.Errorf("CodeClient setCode %v failed: %v", key, err)
+		logger.Errorf("CodeClient setCode %v failed: %v", key, err)
 		return fmt.Errorf("set code failed: %w", err)
 	}
 	return nil
@@ -102,7 +102,7 @@ func (c *CodeClient) VerifyCodeWithContext(ctx context.Context, key string, code
 	storedCode, err := c.client.Get(ctx, key).Result()
 	if err != nil {
 		if err != redis.Nil {
-			log.Errorf("CodeClient verifyCode %v failed: %v", key, err)
+			logger.Errorf("CodeClient verifyCode %v failed: %v", key, err)
 		}
 		return false
 	}
@@ -118,6 +118,6 @@ func (c *CodeClient) VerifyCodeWithContext(ctx context.Context, key string, code
 func (c *CodeClient) deleteCode(ctx context.Context, key string) {
 	_, err := c.client.Del(ctx, key).Result()
 	if err != nil {
-		log.Errorf("CodeClient deleteCode %v failed: %v", key, err)
+		logger.Errorf("CodeClient deleteCode %v failed: %v", key, err)
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 
 	"github.com/dchest/captcha"
-	"github.com/hyperits/gosuite/log"
+	"github.com/hyperits/gosuite/logger"
 )
 
 // 验证码默认配置常量
@@ -67,14 +67,14 @@ func (c *CaptchaClient) VerifyCaptcha(captchaId string, digits string) bool {
 func (c *CaptchaClient) verifyParma() {
 	if c.CaptchaLen <= 0 {
 		c.CaptchaLen = DefaultLen
-		log.Warnf("invalid captcha len, use default [%v]", DefaultLen)
+		logger.Warnf("invalid captcha len, use default [%v]", DefaultLen)
 	}
 	if c.CaptchaWidth <= 0 {
 		c.CaptchaWidth = DefaultWidth
-		log.Warnf("invalid captcha width, use default [%v]", DefaultWidth)
+		logger.Warnf("invalid captcha width, use default [%v]", DefaultWidth)
 	}
 	if c.CaptchaHeight <= 0 {
 		c.CaptchaHeight = DefaultHeight
-		log.Warnf("invalid captcha height, use default [%v]", DefaultHeight)
+		logger.Warnf("invalid captcha height, use default [%v]", DefaultHeight)
 	}
 }

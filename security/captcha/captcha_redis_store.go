@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/hyperits/gosuite/log"
+	"github.com/hyperits/gosuite/logger"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -31,7 +31,7 @@ func (rs *CaptchaRedisStore) Set(id string, digits []byte) {
 	ctx := context.Background()
 	_, err := rs.rc.Set(ctx, rs.key(id), string(digits), time.Duration(rs.expireTimeSeconds)*time.Second).Result()
 	if err != nil {
-		log.Errorf("CaptchaRedisStore set %v failed: %v", id, err)
+		logger.Errorf("CaptchaRedisStore set %v failed: %v", id, err)
 	}
 }
 
@@ -42,7 +42,7 @@ func (rs *CaptchaRedisStore) Get(id string, clear bool) (digits []byte) {
 	v, err := rs.rc.Get(ctx, rs.key(id)).Result()
 	if err != nil {
 		if err != redis.Nil {
-			log.Errorf("CaptchaRedisStore get %v failed: %v", id, err)
+			logger.Errorf("CaptchaRedisStore get %v failed: %v", id, err)
 		}
 		return nil
 	}
@@ -60,7 +60,7 @@ func (rs *CaptchaRedisStore) Del(key string) {
 	ctx := context.Background()
 	_, err := rs.rc.Del(ctx, rs.key(key)).Result()
 	if err != nil {
-		log.Errorf("CaptchaRedisStore del %v failed: %v", key, err)
+		logger.Errorf("CaptchaRedisStore del %v failed: %v", key, err)
 	}
 }
 

@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/hyperits/gosuite/log"
+	"github.com/hyperits/gosuite/logger"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
@@ -84,7 +84,7 @@ func NewS3Client(config *S3Config) (*S3Client, error) {
 	}
 
 	if err := comp.ensureDefaultBucket(context.Background()); err != nil {
-		log.Warnf("failed to ensure default bucket [%s]: %v", config.Bucket, err)
+		logger.Warnf("failed to ensure default bucket [%s]: %v", config.Bucket, err)
 	}
 
 	return comp, nil
@@ -222,7 +222,7 @@ func (c *S3Client) DeleteObjectsByPrefix(ctx context.Context, bucket, prefix str
 			return object.Err
 		}
 		if err := c.client.RemoveObject(ctx, bucket, object.Key, minio.RemoveObjectOptions{}); err != nil {
-			log.Errorf("failed to delete object [%s]: %v", object.Key, err)
+			logger.Errorf("failed to delete object [%s]: %v", object.Key, err)
 			lastErr = err
 		}
 	}

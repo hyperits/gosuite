@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/hyperits/gosuite/errors"
-	"github.com/hyperits/gosuite/log"
+	"github.com/hyperits/gosuite/logger"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -165,7 +165,7 @@ func connect(conf *Config) (redis.UniversalClient, error) {
 
 	switch {
 	case len(conf.SentinelAddresses) > 0:
-		log.Infof("connecting to redis sentinel, addr: %v, master: %v", conf.SentinelAddresses, conf.MasterName)
+		logger.Infof("connecting to redis sentinel, addr: %v, master: %v", conf.SentinelAddresses, conf.MasterName)
 		rcOptions = &redis.UniversalOptions{
 			Addrs:            conf.SentinelAddresses,
 			SentinelUsername: conf.SentinelUsername,
@@ -177,7 +177,7 @@ func connect(conf *Config) (redis.UniversalClient, error) {
 			TLSConfig:        tlsConfig,
 		}
 	case len(conf.ClusterAddresses) > 0:
-		log.Infof("connecting to redis cluster, addr: %v", conf.ClusterAddresses)
+		logger.Infof("connecting to redis cluster, addr: %v", conf.ClusterAddresses)
 		rcOptions = &redis.UniversalOptions{
 			Addrs:        conf.ClusterAddresses,
 			Username:     conf.Username,
@@ -187,7 +187,7 @@ func connect(conf *Config) (redis.UniversalClient, error) {
 			MaxRedirects: conf.GetMaxRedirects(),
 		}
 	default:
-		log.Infof("connecting to redis standalone, addr: %v", conf.Address)
+		logger.Infof("connecting to redis standalone, addr: %v", conf.Address)
 		rcOptions = &redis.UniversalOptions{
 			Addrs:     []string{conf.Address},
 			Username:  conf.Username,

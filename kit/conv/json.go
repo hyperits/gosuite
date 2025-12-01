@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/hyperits/gosuite/kit/debug"
-	"github.com/hyperits/gosuite/log"
+	"github.com/hyperits/gosuite/logger"
 )
 
 // ObjectToJsonString 将任意类型的v转换为格式化的JSON字符串
@@ -13,7 +13,7 @@ import (
 func ObjectToJsonString(v interface{}) string {
 	bytes, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
-		log.ErrorRTf(debug.GetCurrentFunctionInfo(), "ToJsonString error: %v", err)
+		logger.ErrorRTf(debug.GetCurrentFunctionInfo(), "ToJsonString error: %v", err)
 		return ""
 	}
 
