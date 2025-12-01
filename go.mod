@@ -6,7 +6,6 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.642
 	github.com/dchest/captcha v1.0.0
 	github.com/minio/minio-go/v7 v7.0.66
-	github.com/pkg/errors v0.9.1
 	github.com/redis/go-redis/v9 v9.3.1
 	github.com/rs/zerolog v1.31.0
 	golang.org/x/crypto v0.17.0
