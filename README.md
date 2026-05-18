@@ -65,6 +65,10 @@
 | `security/hash` | 密码哈希，使用 bcrypt 算法，支持自定义成本因子 |
 | `security/verify` | 数字验证码，基于 Redis 存储，支持自定义长度和过期时间 |
 
+#### security/captcha 展示建议
+
+`security/captcha` 返回的验证码图片用于识别安全校验，不跟随业务页面主题变化。图片默认带浅色不透明背景，确保在 light / dark 模式下直接展示都有稳定对比度；调用方可再增加细边框和少量内边距来增强边界感。避免使用 CSS `invert` / `filter` 直接反转图片颜色，以免降低数字和干扰线的可读性。
+
 ### storage - 存储
 
 | 子包 | 描述 |

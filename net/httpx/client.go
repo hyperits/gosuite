@@ -229,10 +229,10 @@ func (c *Client) DoRequest(options RequestOptions) (*http.Response, error) {
 
 	// 创建带超时的 context
 	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, options.Method, options.URL, options.Body)
 	if err != nil {
+		cancel()
 		return nil, errors.Wrap(err, "httpx.create_request")
 	}
 
@@ -248,10 +248,26 @@ func (c *Client) DoRequest(options RequestOptions) (*http.Response, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
+		cancel()
 		return nil, errors.Wrap(err, "httpx.do_request")
+	}
+	resp.Body = &cancelOnCloseReadCloser{
+		ReadCloser: resp.Body,
+		cancel:     cancel,
 	}
 
 	return resp, nil
+}
+
+type cancelOnCloseReadCloser struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (r *cancelOnCloseReadCloser) Close() error {
+	err := r.ReadCloser.Close()
+	r.cancel()
+	return err
 }
 
 // WrapHttpResponse 包装 HTTP 响应
